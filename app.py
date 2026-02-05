@@ -84,13 +84,13 @@ search_btn = st.sidebar.button("🔍 Search")
 # -------------------------------------------------
 # RBAC Info (Optional – Read Only)
 # -------------------------------------------------
-#st.sidebar.markdown("---")
-#current_user = session.sql("SELECT CURRENT_USER()").collect()[0][0]
-#current_role = session.sql("SELECT CURRENT_ROLE()").collect()[0][0]
-#
-#st.sidebar.write("👤 User:", current_user)
-#st.sidebar.write("🎭 Role:", current_role)
-#
+st.sidebar.markdown("---")
+current_user = session.sql("SELECT CURRENT_USER()").collect()[0][0]
+current_role = session.sql("SELECT CURRENT_ROLE()").collect()[0][0]
+
+st.sidebar.write("👤 User:", current_user)
+st.sidebar.write("🎭 Role:", current_role)
+
 # -------------------------------------------------
 # Execute Search
 # -------------------------------------------------
