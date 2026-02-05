@@ -54,7 +54,7 @@ st.sidebar.write("👤 User:", st.session_state.username)
 logout_btn = st.sidebar.button("Logout")
 if logout_btn:
     st.session_state.clear()
-    st.experimental_rerun()
+    #st.experimental_rerun()
 
 # -------------------------------------------------
 # Snowflake Session (Auto-auth in SiS)
