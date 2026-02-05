@@ -123,11 +123,22 @@ if search_btn:
                 st.warning("No matching clauses found. Try different filters.")
             else:
                 st.dataframe(results_df,use_container_width=True)
-                for i, row in results_df.iterrows():
+
+                results_df.columns = (
+                    results_df.columns.str.replace('"', '').str.strip().str.upper()
+                )
+
+                results_df = results_df.sort_values("SCORE", ascending=False)
+                for _, row in results_df.iterrows():
                     with st.expander(
-                        f'🔹 Score: {row["SCORE"]:.3f} | {row["CITATION"]}'
+                        f"🔹 Score: {float(row['SCORE']):.3f} | {row['CITATION']}"
                     ):
                         st.markdown(row["EXCERPT"])
+                # for i, row in results_df.iterrows():
+                #     with st.expander(
+                #         f'🔹 Score: {row["SCORE"]:.3f} | {row["CITATION"]}'
+                #     ):
+                #         st.markdown(row["EXCERPT"])
 
             # -----------------------------------------
             # Audit Logging (Optional but recommended)
