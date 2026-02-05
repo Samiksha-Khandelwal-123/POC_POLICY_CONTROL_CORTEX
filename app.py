@@ -130,10 +130,15 @@ if search_btn:
 
                 results_df = results_df.sort_values("SCORE", ascending=False)
                 for _, row in results_df.iterrows():
-                    with st.expander(
-                        f"🔹 Score: {float(row['SCORE']):.3f} | {row['CITATION']}"
-                    ):
-                        st.markdown(row["EXCERPT"])
+                    with st.container():
+                        st.markdown(f"### 📄 {row['CITATION']}")
+                        st.markdown(
+                            f"""
+                            **Excerpt:**  
+                            {row['EXCERPT']}
+                            """
+                        )
+                        st.divider()
                 # for i, row in results_df.iterrows():
                 #     with st.expander(
                 #         f'🔹 Score: {row["SCORE"]:.3f} | {row["CITATION"]}'
