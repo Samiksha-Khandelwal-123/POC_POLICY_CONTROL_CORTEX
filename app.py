@@ -124,7 +124,7 @@ if search_btn:
             else:
                 st.dataframe(results_df,use_container_width=True)
                 for i, row in results_df.iterrows():
-                    with st.expander(f"🔹 Score: {row['SCORE']:.3f} | {row['CITATION']}"):
+                    with st.expander(f"🔹 Score: {row["SCORE"]:.3f} | {row["CITATION"]}"):
                         st.markdown(row["EXCERPT"])
 
             # -----------------------------------------
