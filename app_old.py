@@ -3,46 +3,33 @@ from snowflake.snowpark.context import get_active_session
 from datetime import datetime
 import json
 
-st.success("✅ Streamlit app loaded successfully")
-st.write("If you can see this, Streamlit is running.")
-
-# ------------------------------------
+# -------------------------------------------------
 # Page Configuration
-# ------------------------------------
+# -------------------------------------------------
 st.set_page_config(
     page_title="Policy & Control Search",
     layout="wide"
 )
 
-# ------------------------------------
-# Get Snowflake Session (AUTO AUTH)
-# ------------------------------------
+# -------------------------------------------------
+# Snowflake Session (Auto-auth in SiS)
+# -------------------------------------------------
 session = get_active_session()
 
-# ------------------------------------
+# -------------------------------------------------
 # Header
-# ------------------------------------
+# -------------------------------------------------
 st.title("📄 Policy & Control Search")
-st.caption("Enterprise policy search using Snowflake Cortex Search")
+st.caption("Semantic policy search using Snowflake Cortex embeddings")
 
-# ------------------------------------
-# Sidebar - Search Inputs
-# ------------------------------------
-# ------------------------------------
-# Sidebar - Search Filters (Dynamic)
-# ------------------------------------
+# -------------------------------------------------
+# Sidebar – Search Filters
+# -------------------------------------------------
 st.sidebar.header("🔎 Search Filters")
 
-# ------------------------------------
-# Allowed business values (CONTROLLED)
-# ------------------------------------
-ALLOWED_LOB = ["Retail", "Corporate", "SME"]
-ALLOWED_STATE = ["CA", "NY", "TX"]
-ALLOWED_VERSION = ["v1", "v2"]
-
-# ------------------------------------
-# Load distinct filter values from table
-# ------------------------------------
+# -------------------------------------------------
+# Load filter values dynamically from DOCUMENT_CHUNKS
+# -------------------------------------------------
 @st.cache_data
 def load_filter_values():
     df = session.sql("""
@@ -51,6 +38,7 @@ def load_filter_values():
             STATE,
             VERSION
         FROM AI_POC_DB.HEALTH_POLICY_POC.DOCUMENT_CHUNKS
+        ORDER BY 1,2,3
     """).to_pandas()
 
     return {
@@ -59,18 +47,11 @@ def load_filter_values():
         "VERSION": sorted(df["VERSION"].dropna().unique().tolist())
     }
 
-filter_values = load_filter_values()
+filters = load_filter_values()
 
-# ------------------------------------
-# Intersect DB values with allowed values
-# ------------------------------------
-lob_options = ["All"] + [v for v in ALLOWED_LOB if v in filter_values["LOB"]]
-state_options = ["All"] + [v for v in ALLOWED_STATE if v in filter_values["STATE"]]
-version_options = ["All"] + [v for v in ALLOWED_VERSION if v in filter_values["VERSION"]]
-
-# ------------------------------------
-# Search Inputs
-# ------------------------------------
+# -------------------------------------------------
+# Sidebar Inputs
+# -------------------------------------------------
 search_text = st.sidebar.text_input(
     "Search Query",
     placeholder="e.g. What is the termination clause?"
@@ -78,154 +59,141 @@ search_text = st.sidebar.text_input(
 
 lob = st.sidebar.selectbox(
     "LOB",
-    lob_options
+    filters["LOB"]
 )
 
 state = st.sidebar.selectbox(
     "State",
-    state_options
+    filters["STATE"]
 )
 
 version = st.sidebar.selectbox(
     "Version",
-    version_options
+    filters["VERSION"]
 )
 
 top_k = st.sidebar.slider(
     "Top Results",
     min_value=1,
-    max_value=10,
-    value=5
+    max_value=20,
+    value=10
 )
 
-# ------------------------------------
-# RBAC (Read-only display)
-# ------------------------------------
-st.sidebar.markdown("---")
+search_btn = st.sidebar.button("🔍 Search")
 
+# -------------------------------------------------
+# RBAC Info (Optional – Read Only)
+# -------------------------------------------------
+st.sidebar.markdown("---")
 current_user = session.sql("SELECT CURRENT_USER()").collect()[0][0]
 current_role = session.sql("SELECT CURRENT_ROLE()").collect()[0][0]
 
 st.sidebar.write("👤 User:", current_user)
 st.sidebar.write("🎭 Role:", current_role)
 
-# ------------------------------------
-# Search Button
-# ------------------------------------
-search_btn = st.sidebar.button("🔍 Search")
-# ------------------------------------
-# Helper: Build Cortex Filter Object
-# ------------------------------------
-def build_filter_sql():
-    filters = []
-    if lob != "All":
-        filters.append(f"'LOB','{lob}'")
-    if state != "All":
-        filters.append(f"'STATE','{state}'")
-    if version != "All":
-        filters.append(f"'VERSION','{version}'")
-
-    return ",".join(filters)
-
-# ------------------------------------
+# -------------------------------------------------
 # Execute Search
-# ------------------------------------
-if search_btn and search_text:
+# -------------------------------------------------
+if search_btn:
 
-    st.subheader("📌 Search Results")
+    if not search_text.strip():
+        st.warning("Please enter a search query.")
+    else:
+        st.subheader("📌 Search Results")
 
-    filter_sql = build_filter_sql()
+        # ---------------------------------------------
+        # Call Stored Procedure
+        # ---------------------------------------------
+        search_sql = f"""
+            CALL AI_POC_DB.HEALTH_POLICY_POC.SEARCH_POLICY_CLAUSE(
+                '{search_text}',
+                '{state}',
+                '{lob}',
+                '{version}'
+            )
+        """
 
-    # --------------------------------
-    # Cortex Search SQL
-    # --------------------------------
-    cortex_sql = f"""
-    SELECT
-        DOC_NAME,
-        SECTION_TITLE,
-        CHUNK_TEXT,
-        SCORE
-    FROM TABLE(
-        CORTEX.SEARCH(
-            'POLICY_SEARCH_SVC',
-            '{search_text}',
-            OBJECT_CONSTRUCT_KEEP_NULL({filter_sql}),
-            {top_k}
-        )
-    )
-    """
+        try:
+            results_df = session.sql(search_sql).to_pandas()
 
-    try:
-        # Execute query
-        results_df = session.sql(cortex_sql).to_pandas()
+            # -----------------------------------------
+            # No Results
+            # -----------------------------------------
+            if results_df.empty:
+                st.warning("No matching clauses found. Try different filters.")
+            else:
+                st.dataframe(results_df,use_container_width=True)
 
-        # Convert output to JSON (VARIANT)
-        query_output_json = json.loads(
-            results_df.to_json(orient="records")
-        )
+                results_df.columns = (
+                    results_df.columns.str.replace('"', '').str.strip().str.upper()
+                )
 
-        # Display results
-        if results_df.empty:
-            st.warning("No results found. Please adjust filters.")
-        else:
-            for _, row in results_df.iterrows():
-                st.markdown(f"""
-                ### {row['SECTION_TITLE']}
-                **📄 Document:** {row['DOC_NAME']}  
-                **🎯 Score:** {round(row['SCORE'], 3)}
+                results_df = results_df.sort_values("SCORE", ascending=False)
 
-                {row['CHUNK_TEXT']}
-                ---
-                """)
+                for _, row in results_df.iterrows():
+                    with st.expander(f"Citation: {row['CITATION']}"):
+                        st.markdown("**Excerpt:**")
+                        st.markdown(row["EXCERPT"])
+        
+                # Clean “Search Result” card style (best UX)
+                # for _, row in results_df.iterrows():
+                #     with st.container():
+                #         st.markdown(f"### 📄 {row['CITATION']}")
+                #         st.markdown(
+                #             f"""
+                #             **Excerpt:**  
+                #             {row['EXCERPT']}
+                #             """
+                #         )
+                #         st.divider()
+                 ###Old:       
+                # for i, row in results_df.iterrows():
+                #     with st.expander(
+                #         f'🔹 Score: {row["SCORE"]:.3f} | {row["CITATION"]}'
+                #     ):
+                #         st.markdown(row["EXCERPT"])
 
-        # --------------------------------
-        # Audit Logging (MATCHES YOUR TABLE)
-        # --------------------------------
-        session.create_dataframe(
-            [[
-                search_text,
-                None if lob == "All" else lob,
-                None if state == "All" else state,
-                None if version == "All" else version,
-                cortex_sql,
-                query_output_json,
-                len(query_output_json),
-                None,
-                None,
-                datetime.now()
-            ]],
-            schema=[
-                "SEARCH_TEXT",
-                "LOB",
-                "STATE",
-                "VERSION",
-                "QUERY_TEXT",
-                "QUERY_OUTPUT",
-                "RESULT_COUNT",
-                "USER_NAME",
-                "ROLE_NAME",
-                "SEARCH_TS"
-            ]
-        ).write.save_as_table(
-            "POLICY_SEARCH_AUDIT",
-            mode="append"
-        )
+            # -----------------------------------------
+            # Audit Logging (Optional but recommended)
+            # -----------------------------------------
+            audit_df = session.create_dataframe(
+                [[
+                    search_text,
+                    lob,
+                    state,
+                    version,
+                    search_sql,
+                    json.loads(results_df.to_json(orient="records")),
+                    len(results_df),
+                    current_user,
+                    current_role,
+                    datetime.now()
+                ]],
+                schema=[
+                    "SEARCH_TEXT",
+                    "LOB",
+                    "STATE",
+                    "VERSION",
+                    "QUERY_TEXT",
+                    "QUERY_OUTPUT",
+                    "RESULT_COUNT",
+                    "USER_NAME",
+                    "ROLE_NAME",
+                    "SEARCH_TS"
+                ]
+            )
 
-        # Update USER + ROLE from Snowflake context
-        session.sql("""
-            UPDATE POLICY_SEARCH_AUDIT
-            SET
-                USER_NAME = CURRENT_USER(),
-                ROLE_NAME = CURRENT_ROLE()
-            WHERE USER_NAME IS NULL
-        """).collect()
+            audit_df.write.save_as_table(
+                "AI_POC_DB.HEALTH_POLICY_POC.POLICY_SEARCH_AUDIT",
+                mode="append"
+            )
 
-    except Exception as e:
-        st.error("❌ Error while executing search")
-        st.code(str(e))
+        except Exception as e:
+            st.error("❌ Error while executing search")
+            st.code(str(e))
 
-# ------------------------------------
+# -------------------------------------------------
 # Footer
-# ------------------------------------
+# -------------------------------------------------
 st.divider()
-st.caption("Powered by Snowflake Cortex Search • Streamlit in Snowflake")
+st.caption("Powered by Snowflake Cortex Embeddings • Streamlit in Snowflake")
