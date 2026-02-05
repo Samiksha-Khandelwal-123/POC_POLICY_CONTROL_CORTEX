@@ -12,47 +12,49 @@ st.set_page_config(
 )
 
 # -------------------------------------------------
-# Session Defaults
+# Session State Initialization
 # -------------------------------------------------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
-
-if "role" not in st.session_state:
     st.session_state.role = None
-
-if "username" not in st.session_state:
     st.session_state.username = None
 
 # -------------------------------------------------
-# FULL PAGE LOGIN (WORKS IN SIS)
+# Sidebar Login (RBAC)
 # -------------------------------------------------
+st.sidebar.title("🔐 Login")
+
 if not st.session_state.authenticated:
 
-    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    username = st.sidebar.text_input("Username")
+    password = st.sidebar.text_input("Password", type="password")
+    role = st.sidebar.selectbox("Login As", ["admin", "user"])
 
-    st.markdown(
-        """
-        <h2 style="text-align:center;">🔐 Policy & Control Search</h2>
-        <p style="text-align:center;">Select user type to continue</p>
-        """,
-        unsafe_allow_html=True
-    )
+    login_btn = st.sidebar.button("Login")
 
-    col1, col2, col3 = st.columns([1, 2, 1])
-
-    with col2:
-        user_type = st.selectbox(
-            "Login As",
-            ["Admin", "User"]
-        )
-
-        if st.button("Login", use_container_width=True):
+    if login_btn:
+        # 🔹 DEMO AUTH (replace with DB / LDAP if needed)
+        if username and password:
             st.session_state.authenticated = True
-            st.session_state.username = user_type
-            st.session_state.role = "admin" if user_type == "Admin" else "user"
-            st.rerun()
+            st.session_state.role = role
+            st.session_state.username = username
+            st.experimental_rerun()
+        else:
+            st.sidebar.error("Invalid credentials")
 
+    # Stop app execution until login
     st.stop()
+
+# -------------------------------------------------
+# Logged-in Sidebar Info
+# -------------------------------------------------
+st.sidebar.success(f"Logged in as {st.session_state.role.upper()}")
+st.sidebar.write("👤 User:", st.session_state.username)
+
+logout_btn = st.sidebar.button("Logout")
+if logout_btn:
+    st.session_state.clear()
+    st.experimental_rerun()
 
 # -------------------------------------------------
 # Snowflake Session (Auto-auth in SiS)
@@ -64,17 +66,6 @@ session = get_active_session()
 # -------------------------------------------------
 st.title("📄 Policy & Control Search")
 st.caption("Semantic policy search using Snowflake Cortex embeddings")
-
-# -------------------------------------------------
-# Sidebar – User Info & Logout
-# -------------------------------------------------
-with st.sidebar:
-    st.write(f"👤 User: {st.session_state.username}")
-    st.write(f"🔑 Role: {st.session_state.role}")
-
-    if st.button("Logout"):
-        st.session_state.clear()
-        st.rerun()
 
 # -------------------------------------------------
 # Sidebar – Search Filters
@@ -109,13 +100,7 @@ lob = st.sidebar.selectbox("LOB", filters["LOB"])
 state = st.sidebar.selectbox("State", filters["STATE"])
 version = st.sidebar.selectbox("Version", filters["VERSION"])
 
-top_k = st.sidebar.slider(
-    "Top Results",
-    min_value=1,
-    max_value=20,
-    value=10
-)
-
+top_k = st.sidebar.slider("Top Results", 1, 20, 10)
 search_btn = st.sidebar.button("🔍 Search")
 
 # -------------------------------------------------
@@ -143,74 +128,66 @@ if search_btn:
             if results_df.empty:
                 st.warning("No matching clauses found.")
             else:
-                # Normalize columns
                 results_df.columns = (
-                    results_df.columns
-                        .str.replace('"', '')
-                        .str.strip()
-                        .str.upper()
+                    results_df.columns.str.replace('"', '').str.strip().str.upper()
                 )
 
-                # Sort by relevance (hidden from UI)
-                results_df = (
-                    results_df
-                        .sort_values("SCORE", ascending=False)
-                        .head(top_k)
-                )
+                results_df = results_df.sort_values("SCORE", ascending=False)
 
                 # -------------------------------------------------
-                # RBAC-BASED RESULT RENDERING
+                # RBAC Result Rendering
                 # -------------------------------------------------
                 for _, row in results_df.iterrows():
                     with st.container():
 
-                        # ADMIN VIEW
+                        # ADMIN → Citation + Excerpt
                         if st.session_state.role == "admin":
                             st.markdown(f"### 📄 {row['CITATION']}")
                             st.markdown("**Excerpt:**")
                             st.markdown(row["EXCERPT"])
 
-                        # USER VIEW
+                        # USER → Excerpt only
                         else:
+                            st.markdown("### 📄 Policy Match")
                             st.markdown("**Excerpt:**")
                             st.markdown(row["EXCERPT"])
 
                         st.divider()
 
-                # -------------------------------------------------
-                # Audit Logging
-                # -------------------------------------------------
-                audit_df = session.create_dataframe(
-                    [[
-                        search_text,
-                        lob,
-                        state,
-                        version,
-                        search_sql,
-                        json.loads(results_df.to_json(orient="records")),
-                        len(results_df),
-                        st.session_state.username,
-                        st.session_state.role,
-                        datetime.now()
-                    ]],
-                    schema=[
-                        "SEARCH_TEXT",
-                        "LOB",
-                        "STATE",
-                        "VERSION",
-                        "QUERY_TEXT",
-                        "QUERY_OUTPUT",
-                        "RESULT_COUNT",
-                        "USER_NAME",
-                        "ROLE_NAME",
-                        "SEARCH_TS"
-                    ]
-                )
+            # -------------------------------------------------
+            # Audit Logging
+            # -------------------------------------------------
+            audit_df = session.create_dataframe(
+                [[
+                    search_text,
+                    lob,
+                    state,
+                    version,
+                    search_sql,
+                    json.loads(results_df.to_json(orient="records")),
+                    len(results_df),
+                    st.session_state.username,
+                    st.session_state.role,
+                    datetime.now()
+                ]],
+                schema=[
+                    "SEARCH_TEXT",
+                    "LOB",
+                    "STATE",
+                    "VERSION",
+                    "QUERY_TEXT",
+                    "QUERY_OUTPUT",
+                    "RESULT_COUNT",
+                    "USER_NAME",
+                    "ROLE_NAME",
+                    "SEARCH_TS"
+                ]
+            )
 
-                audit_df.write.save_as_table(
-                    "AI_POC_DB.HEALTH_POLICY_POC.POLICY_SEARCH_AUDIT",
-                    mode="append"
-                )
+            audit_df.write.save_as_table(
+                "AI_POC_DB.HEALTH_POLICY_POC.POLICY_SEARCH_AUDIT",
+                mode="append"
+            )
 
         except Exception as e:
             st.error("❌ Error while executing search")
