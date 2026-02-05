@@ -15,22 +15,21 @@ st.set_page_config(
 # RBAC Users (POC Only)
 # -------------------------------------------------
 USERS = {
-    "admin": {
-        "password": "admin123",
-        "role": "admin"
-    },
-    "user": {
-        "password": "user123",
-        "role": "user"
-    }
+    "admin": {"password": "admin123", "role": "admin"},
+    "user": {"password": "user123", "role": "user"}
 }
 
 # -------------------------------------------------
-# Login Function
+# Session defaults
 # -------------------------------------------------
-def login():
-    st.title("🔐 Login")
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
 
+# -------------------------------------------------
+# Login Dialog (POPUP)
+# -------------------------------------------------
+@st.dialog("🔐 Login", width="small")
+def login_dialog():
     username = st.text_input("User ID")
     password = st.text_input("Password", type="password")
 
@@ -38,26 +37,23 @@ def login():
         user = USERS.get(username)
 
         if user and user["password"] == password:
-            st.session_state["authenticated"] = True
-            st.session_state["username"] = username
-            st.session_state["role"] = user["role"]
+            st.session_state.authenticated = True
+            st.session_state.username = username
+            st.session_state.role = user["role"]
             st.success("Login successful")
             st.rerun()
         else:
             st.error("Invalid credentials")
 
 # -------------------------------------------------
-# Authentication Guard
+# Force login popup at app start
 # -------------------------------------------------
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
-
-if not st.session_state["authenticated"]:
-    login()
+if not st.session_state.authenticated:
+    login_dialog()
     st.stop()
 
 # -------------------------------------------------
-# Snowflake Session (Auto-auth in SiS)
+# Snowflake Session
 # -------------------------------------------------
 session = get_active_session()
 
@@ -71,12 +67,11 @@ st.caption("Semantic policy search using Snowflake Cortex embeddings")
 # Sidebar – User Info & Logout
 # -------------------------------------------------
 with st.sidebar:
-    st.write(f"👤 User: {st.session_state['username']}")
-    st.write(f"🔑 Role: {st.session_state['role']}")
+    st.write(f"👤 User: {st.session_state.username}")
+    st.write(f"🔑 Role: {st.session_state.role}")
 
     if st.button("Logout"):
-        for k in ["authenticated", "username", "role"]:
-            st.session_state.pop(k, None)
+        st.session_state.clear()
         st.rerun()
 
 # -------------------------------------------------
@@ -111,7 +106,6 @@ search_text = st.sidebar.text_input(
 lob = st.sidebar.selectbox("LOB", filters["LOB"])
 state = st.sidebar.selectbox("State", filters["STATE"])
 version = st.sidebar.selectbox("Version", filters["VERSION"])
-
 top_k = st.sidebar.slider("Top Results", 1, 20, 10)
 
 search_btn = st.sidebar.button("🔍 Search")
@@ -141,7 +135,6 @@ if search_btn:
             if results_df.empty:
                 st.warning("No matching clauses found.")
             else:
-                # Normalize columns
                 results_df.columns = (
                     results_df.columns
                         .str.replace('"', '')
@@ -149,7 +142,6 @@ if search_btn:
                         .str.upper()
                 )
 
-                # Sort by relevance (hidden)
                 results_df = (
                     results_df
                         .sort_values("SCORE", ascending=False)
@@ -157,18 +149,15 @@ if search_btn:
                 )
 
                 # -------------------------------------------------
-                # RBAC-based Rendering
+                # RBAC Rendering
                 # -------------------------------------------------
                 for _, row in results_df.iterrows():
                     with st.container():
 
-                        # ADMIN VIEW
-                        if st.session_state["role"] == "admin":
+                        if st.session_state.role == "admin":
                             st.markdown(f"### 📄 {row['CITATION']}")
                             st.markdown("**Excerpt:**")
                             st.markdown(row["EXCERPT"])
-
-                        # NORMAL USER VIEW
                         else:
                             st.markdown("**Excerpt:**")
                             st.markdown(row["EXCERPT"])
@@ -187,8 +176,8 @@ if search_btn:
                         search_sql,
                         json.loads(results_df.to_json(orient="records")),
                         len(results_df),
-                        st.session_state["username"],
-                        st.session_state["role"],
+                        st.session_state.username,
+                        st.session_state.role,
                         datetime.now()
                     ]],
                     schema=[
