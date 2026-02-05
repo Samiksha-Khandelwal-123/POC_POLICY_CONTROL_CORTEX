@@ -12,48 +12,50 @@ st.set_page_config(
 )
 
 # -------------------------------------------------
-# RBAC Users (POC Only)
-# -------------------------------------------------
-USERS = {
-    "admin": {"password": "admin123", "role": "admin"},
-    "user": {"password": "user123", "role": "user"}
-}
-
-# -------------------------------------------------
-# Session defaults
+# Session Defaults
 # -------------------------------------------------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-# -------------------------------------------------
-# Login Dialog (POPUP)
-# -------------------------------------------------
-@st.dialog("🔐 Login", width="small")
-def login_dialog():
-    username = st.text_input("User ID")
-    password = st.text_input("Password", type="password")
+if "role" not in st.session_state:
+    st.session_state.role = None
 
-    if st.button("Login"):
-        user = USERS.get(username)
-
-        if user and user["password"] == password:
-            st.session_state.authenticated = True
-            st.session_state.username = username
-            st.session_state.role = user["role"]
-            st.success("Login successful")
-            st.rerun()
-        else:
-            st.error("Invalid credentials")
+if "username" not in st.session_state:
+    st.session_state.username = None
 
 # -------------------------------------------------
-# Force login popup at app start
+# FULL PAGE LOGIN (WORKS IN SIS)
 # -------------------------------------------------
 if not st.session_state.authenticated:
-    login_dialog()
+
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+
+    st.markdown(
+        """
+        <h2 style="text-align:center;">🔐 Policy & Control Search</h2>
+        <p style="text-align:center;">Select user type to continue</p>
+        """,
+        unsafe_allow_html=True
+    )
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+
+    with col2:
+        user_type = st.selectbox(
+            "Login As",
+            ["Admin", "User"]
+        )
+
+        if st.button("Login", use_container_width=True):
+            st.session_state.authenticated = True
+            st.session_state.username = user_type
+            st.session_state.role = "admin" if user_type == "Admin" else "user"
+            st.rerun()
+
     st.stop()
 
 # -------------------------------------------------
-# Snowflake Session
+# Snowflake Session (Auto-auth in SiS)
 # -------------------------------------------------
 session = get_active_session()
 
@@ -106,7 +108,13 @@ search_text = st.sidebar.text_input(
 lob = st.sidebar.selectbox("LOB", filters["LOB"])
 state = st.sidebar.selectbox("State", filters["STATE"])
 version = st.sidebar.selectbox("Version", filters["VERSION"])
-top_k = st.sidebar.slider("Top Results", 1, 20, 10)
+
+top_k = st.sidebar.slider(
+    "Top Results",
+    min_value=1,
+    max_value=20,
+    value=10
+)
 
 search_btn = st.sidebar.button("🔍 Search")
 
@@ -135,6 +143,7 @@ if search_btn:
             if results_df.empty:
                 st.warning("No matching clauses found.")
             else:
+                # Normalize columns
                 results_df.columns = (
                     results_df.columns
                         .str.replace('"', '')
@@ -142,6 +151,7 @@ if search_btn:
                         .str.upper()
                 )
 
+                # Sort by relevance (hidden from UI)
                 results_df = (
                     results_df
                         .sort_values("SCORE", ascending=False)
@@ -149,15 +159,18 @@ if search_btn:
                 )
 
                 # -------------------------------------------------
-                # RBAC Rendering
+                # RBAC-BASED RESULT RENDERING
                 # -------------------------------------------------
                 for _, row in results_df.iterrows():
                     with st.container():
 
+                        # ADMIN VIEW
                         if st.session_state.role == "admin":
                             st.markdown(f"### 📄 {row['CITATION']}")
                             st.markdown("**Excerpt:**")
                             st.markdown(row["EXCERPT"])
+
+                        # USER VIEW
                         else:
                             st.markdown("**Excerpt:**")
                             st.markdown(row["EXCERPT"])
