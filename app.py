@@ -123,15 +123,9 @@ if search_btn:
                 st.warning("No matching clauses found. Try different filters.")
             else:
                 st.dataframe(results_df,use_container_width=True)
-                # for idx, row in results_df.iterrows():
-                #     st.markdown(f"""
-                #     ### 🔹 Result {idx + 1}
-                #     **🎯 Score:** {round(row["SCORE"], 3)}  
-                #     **📄 Citation:** {row["CITATION"]}
-
-                #     {row["EXCERPT"]}
-                #     ---
-                #     """)
+                for i, row in results_df.iterrows():
+                    with st.expander(f"🔹 Score: {row['SCORE']:.3f} | {row['CITATION']}"):
+                        st.markdown(row["EXCERPT"])
 
             # -----------------------------------------
             # Audit Logging (Optional but recommended)
