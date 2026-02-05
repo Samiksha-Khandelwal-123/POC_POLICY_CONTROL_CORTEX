@@ -122,15 +122,16 @@ if search_btn:
             if results_df.empty:
                 st.warning("No matching clauses found. Try different filters.")
             else:
-                for idx, row in results_df.iterrows():
-                    st.markdown(f"""
-                    ### 🔹 Result {idx + 1}
-                    **🎯 Score:** {round(row["SCORE"], 3)}  
-                    **📄 Citation:** {row["CITATION"]}
+                st.dataframe(results_df,use_container_width=True)
+                # for idx, row in results_df.iterrows():
+                #     st.markdown(f"""
+                #     ### 🔹 Result {idx + 1}
+                #     **🎯 Score:** {round(row["SCORE"], 3)}  
+                #     **📄 Citation:** {row["CITATION"]}
 
-                    {row["EXCERPT"]}
-                    ---
-                    """)
+                #     {row["EXCERPT"]}
+                #     ---
+                #     """)
 
             # -----------------------------------------
             # Audit Logging (Optional but recommended)
