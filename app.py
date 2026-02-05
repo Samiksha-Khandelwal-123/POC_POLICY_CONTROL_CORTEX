@@ -131,7 +131,7 @@ if search_btn:
                 results_df = results_df.sort_values("SCORE", ascending=False)
 
                 for _, row in results_df.iterrows():
-                    with st.expander(f"📄st.markdown('**Citation:**') {row['CITATION']}"):
+                    with st.expander(f"Citation: {row['CITATION']}"):
                         st.markdown("**Excerpt:**")
                         st.markdown(row["EXCERPT"])
         
