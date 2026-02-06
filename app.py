@@ -42,7 +42,7 @@ if not st.session_state.authenticated:
         else:
             st.sidebar.error("Invalid credentials")
 
-    # Stop app execution until login
+    # Stop app execution until login.
     st.stop()
 
 # -------------------------------------------------
