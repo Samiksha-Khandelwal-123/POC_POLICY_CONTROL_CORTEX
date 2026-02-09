@@ -98,12 +98,15 @@ current_role = session.sql(
 # -------------------------------------------------
 st.sidebar.success("Authenticated")
 st.sidebar.write("👤 User:", current_user)
-st.sidebar.write("🛡️ App Role:", app_role.upper())
+
+if app_role:
+    st.sidebar.write("🛡️ App Role:", app_role.upper())
+else:
+    st.sidebar.write("🛡️ App Role: UNKNOWN")
 
 if st.sidebar.button("🚪 Logout"):
     st.session_state.clear()
-    st.experimental_rerun()
-
+    #st.experimental_rerun()
 # -------------------------------------------------
 # Header
 # -------------------------------------------------
