@@ -12,41 +12,53 @@ st.set_page_config(
 )
 
 # -------------------------------------------------
-# Get Snowflake Session (Auto-authenticated)
+# Get Snowflake Session
 # -------------------------------------------------
 session = get_active_session()
 
 # -------------------------------------------------
-# Identify Logged-in Snowflake User
+# Identify Snowflake Context (DEBUG FIRST)
 # -------------------------------------------------
 current_user = session.sql("SELECT CURRENT_USER()").collect()[0][0]
 current_role = session.sql("SELECT CURRENT_ROLE()").collect()[0][0]
 
+st.sidebar.markdown("### 🔍 Debug Context")
+st.sidebar.write("CURRENT_USER:", current_user)
+st.sidebar.write("CURRENT_ROLE:", current_role)
+
 # -------------------------------------------------
-# Resolve App-Level Role from Table
+# Fetch APP ROLE (NO CACHE – VERY IMPORTANT)
 # -------------------------------------------------
-@st.cache_data
-def get_app_role(user_name):
-    df = session.sql(f"""
-        SELECT APP_ROLE
+def get_app_role():
+    df = session.sql("""
+        SELECT USER_NAME, APP_ROLE, IS_ACTIVE
         FROM AI_POC_DB.HEALTH_POLICY_POC.APP_USER_ACCESS
-        WHERE UPPER(USER_NAME) = UPPER('{user_name}')
-          AND IS_ACTIVE = TRUE
+        WHERE (
+            UPPER(USER_NAME) = UPPER(CURRENT_USER())
+            OR UPPER(USER_NAME) = SPLIT(UPPER(CURRENT_USER()), '@')[0]
+        )
+        AND IS_ACTIVE = TRUE
     """).to_pandas()
 
-    if df.empty:
-        return None
+    return df
 
-    return df.iloc[0]["APP_ROLE"]
-
-app_role = get_app_role(current_user)
+app_role_df = get_app_role()
 
 # -------------------------------------------------
 # Authorization Gate
 # -------------------------------------------------
-if not app_role:
+if app_role_df.empty:
     st.error("❌ You are not authorized to access this application.")
+    st.markdown("### 🔍 Authorization Debug")
+    st.dataframe(
+        session.sql("""
+            SELECT *
+            FROM AI_POC_DB.HEALTH_POLICY_POC.APP_USER_ACCESS
+        """).to_pandas()
+    )
     st.stop()
+
+app_role = app_role_df.iloc[0]["APP_ROLE"]
 
 # -------------------------------------------------
 # Session State
@@ -61,7 +73,6 @@ st.session_state.role = app_role
 st.sidebar.success("Authenticated via Snowflake")
 st.sidebar.write("👤 User:", current_user)
 st.sidebar.write("🛡️ App Role:", app_role.upper())
-st.sidebar.write("🔐 Snowflake Role:", current_role)
 
 # -------------------------------------------------
 # Header
@@ -74,7 +85,6 @@ st.caption("Semantic policy search using Snowflake Cortex embeddings")
 # -------------------------------------------------
 st.sidebar.header("🔎 Search Filters")
 
-@st.cache_data
 def load_filter_values():
     df = session.sql("""
         SELECT DISTINCT
@@ -102,7 +112,6 @@ lob = st.sidebar.selectbox("LOB", filters["LOB"])
 state = st.sidebar.selectbox("State", filters["STATE"])
 version = st.sidebar.selectbox("Version", filters["VERSION"])
 
-top_k = st.sidebar.slider("Top Results", 1, 20, 10)
 search_btn = st.sidebar.button("🔍 Search")
 
 # -------------------------------------------------
@@ -136,19 +145,14 @@ if search_btn:
 
                 results_df = results_df.sort_values("SCORE", ascending=False)
 
-                # -------------------------------------------------
-                # RBAC Result Rendering
-                # -------------------------------------------------
                 for _, row in results_df.iterrows():
                     with st.container():
 
-                        if st.session_state.role == "admin":
+                        if app_role == "admin":
                             st.markdown(f"### 📄 {row['CITATION']}")
-                            st.markdown("**Excerpt:**")
                             st.markdown(row["EXCERPT"])
                         else:
                             st.markdown("### 📄 Policy Match")
-                            st.markdown("**Excerpt:**")
                             st.markdown(row["EXCERPT"])
 
                         st.divider()
@@ -195,7 +199,4 @@ if search_btn:
             st.code(str(e))
 
 # -------------------------------------------------
-# Footer
-# -------------------------------------------------
-st.divider()
-st.caption("Powered by Snowflake Cortex Embeddings • Streamlit in Snowflake")
+#
