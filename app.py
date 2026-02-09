@@ -12,54 +12,56 @@ st.set_page_config(
 )
 
 # -------------------------------------------------
-# Session State Initialization
+# Get Snowflake Session (Auto-authenticated)
 # -------------------------------------------------
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-    st.session_state.role = None
-    st.session_state.username = None
+session = get_active_session()
 
 # -------------------------------------------------
-# Sidebar Login (RBAC)
+# Identify Logged-in Snowflake User
 # -------------------------------------------------
-st.sidebar.title("🔐 Login")
+current_user = session.sql("SELECT CURRENT_USER()").collect()[0][0]
+current_role = session.sql("SELECT CURRENT_ROLE()").collect()[0][0]
 
-if not st.session_state.authenticated:
+# -------------------------------------------------
+# Resolve App-Level Role from Table
+# -------------------------------------------------
+@st.cache_data
+def get_app_role(user_name):
+    df = session.sql(f"""
+        SELECT APP_ROLE
+        FROM AI_POC_DB.HEALTH_POLICY_POC.APP_USER_ACCESS
+        WHERE UPPER(USER_NAME) = UPPER('{user_name}')
+          AND IS_ACTIVE = TRUE
+    """).to_pandas()
 
-    username = st.sidebar.text_input("Username")
-    password = st.sidebar.text_input("Password", type="password")
-    role = st.sidebar.selectbox("Login As", ["admin", "user"])
+    if df.empty:
+        return None
 
-    login_btn = st.sidebar.button("Login")
+    return df.iloc[0]["APP_ROLE"]
 
-    if login_btn:
-        # 🔹 DEMO AUTH (replace with DB / LDAP if needed)
-        if username and password:
-            st.session_state.authenticated = True
-            st.session_state.role = role
-            st.session_state.username = username
-            #st.experimental_rerun()
-        else:
-            st.sidebar.error("Invalid credentials")
+app_role = get_app_role(current_user)
 
-    # Stop app execution until login
+# -------------------------------------------------
+# Authorization Gate
+# -------------------------------------------------
+if not app_role:
+    st.error("❌ You are not authorized to access this application.")
     st.stop()
 
 # -------------------------------------------------
-# Logged-in Sidebar Info
+# Session State
 # -------------------------------------------------
-st.sidebar.success(f"Logged in as {st.session_state.role.upper()}")
-st.sidebar.write("👤 User:", st.session_state.username)
-
-logout_btn = st.sidebar.button("Logout")
-if logout_btn:
-    st.session_state.clear()
-    #st.experimental_rerun()
+st.session_state.authenticated = True
+st.session_state.username = current_user
+st.session_state.role = app_role
 
 # -------------------------------------------------
-# Snowflake Session (Auto-auth in SiS)
+# Sidebar – User Info
 # -------------------------------------------------
-session = get_active_session()
+st.sidebar.success("Authenticated via Snowflake")
+st.sidebar.write("👤 User:", current_user)
+st.sidebar.write("🛡️ App Role:", app_role.upper())
+st.sidebar.write("🔐 Snowflake Role:", current_role)
 
 # -------------------------------------------------
 # Header
@@ -140,13 +142,10 @@ if search_btn:
                 for _, row in results_df.iterrows():
                     with st.container():
 
-                        # ADMIN → Citation + Excerpt
                         if st.session_state.role == "admin":
                             st.markdown(f"### 📄 {row['CITATION']}")
                             st.markdown("**Excerpt:**")
                             st.markdown(row["EXCERPT"])
-
-                        # USER → Excerpt only
                         else:
                             st.markdown("### 📄 Policy Match")
                             st.markdown("**Excerpt:**")
@@ -166,8 +165,9 @@ if search_btn:
                     search_sql,
                     json.loads(results_df.to_json(orient="records")),
                     len(results_df),
-                    st.session_state.username,
-                    st.session_state.role,
+                    current_user,
+                    app_role,
+                    current_role,
                     datetime.now()
                 ]],
                 schema=[
@@ -179,7 +179,8 @@ if search_btn:
                     "QUERY_OUTPUT",
                     "RESULT_COUNT",
                     "USER_NAME",
-                    "ROLE_NAME",
+                    "APP_ROLE",
+                    "SNOWFLAKE_ROLE",
                     "SEARCH_TS"
                 ]
             )
