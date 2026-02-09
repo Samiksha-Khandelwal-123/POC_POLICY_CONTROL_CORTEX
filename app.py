@@ -17,48 +17,56 @@ st.set_page_config(
 session = get_active_session()
 
 # -------------------------------------------------
-# Identify Snowflake Context (DEBUG FIRST)
+# Get Logged-in User (CORRECT for Streamlit in Snowflake)
 # -------------------------------------------------
-current_user = session.sql("SELECT CURRENT_USER()").collect()[0][0]
-current_role = session.sql("SELECT CURRENT_ROLE()").collect()[0][0]
+user_ctx = st.experimental_user
+current_user = user_ctx.user_name   # ✅ DO NOT use CURRENT_USER()
+current_role = session.sql(
+    "SELECT CURRENT_ROLE()"
+).collect()[0][0]
 
+# -------------------------------------------------
+# Debug Context (can be removed later)
+# -------------------------------------------------
 st.sidebar.markdown("### 🔍 Debug Context")
 st.sidebar.write("CURRENT_USER:", current_user)
 st.sidebar.write("CURRENT_ROLE:", current_role)
 
 # -------------------------------------------------
-# Fetch APP ROLE (NO CACHE – VERY IMPORTANT)
+# Fetch App Role from Authorization Table
 # -------------------------------------------------
-def get_app_role():
+def get_app_role(user_name):
     df = session.sql("""
-        SELECT USER_NAME, APP_ROLE, IS_ACTIVE
+        SELECT APP_ROLE
         FROM AI_POC_DB.HEALTH_POLICY_POC.APP_USER_ACCESS
         WHERE (
-            UPPER(USER_NAME) = UPPER(CURRENT_USER())
-            OR UPPER(USER_NAME) = SPLIT(UPPER(CURRENT_USER()), '@')[0]
+            UPPER(USER_NAME) = UPPER(:1)
+            OR UPPER(USER_NAME) = SPLIT(UPPER(:1), '@')[0]
         )
         AND IS_ACTIVE = TRUE
-    """).to_pandas()
+    """, [user_name]).to_pandas()
 
-    return df
+    if df.empty:
+        return None
 
-app_role_df = get_app_role()
+    return df.iloc[0]["APP_ROLE"]
+
+app_role = get_app_role(current_user)
 
 # -------------------------------------------------
 # Authorization Gate
 # -------------------------------------------------
-if app_role_df.empty:
+if not app_role:
     st.error("❌ You are not authorized to access this application.")
-    st.markdown("### 🔍 Authorization Debug")
-    st.dataframe(
-        session.sql("""
-            SELECT *
-            FROM AI_POC_DB.HEALTH_POLICY_POC.APP_USER_ACCESS
-        """).to_pandas()
-    )
-    st.stop()
 
-app_role = app_role_df.iloc[0]["APP_ROLE"]
+    st.markdown("### 🔍 Authorization Debug")
+    debug_df = session.sql("""
+        SELECT USER_NAME, APP_ROLE, IS_ACTIVE, CREATED_TS
+        FROM AI_POC_DB.HEALTH_POLICY_POC.APP_USER_ACCESS
+    """).to_pandas()
+    st.dataframe(debug_df)
+
+    st.stop()
 
 # -------------------------------------------------
 # Session State
@@ -140,7 +148,9 @@ if search_btn:
                 st.warning("No matching clauses found.")
             else:
                 results_df.columns = (
-                    results_df.columns.str.replace('"', '').str.strip().str.upper()
+                    results_df.columns.str.replace('"', '')
+                    .str.strip()
+                    .str.upper()
                 )
 
                 results_df = results_df.sort_values("SCORE", ascending=False)
@@ -148,11 +158,13 @@ if search_btn:
                 for _, row in results_df.iterrows():
                     with st.container():
 
-                        if app_role == "admin":
+                        if app_role.lower() == "admin":
                             st.markdown(f"### 📄 {row['CITATION']}")
+                            st.markdown("**Excerpt:**")
                             st.markdown(row["EXCERPT"])
                         else:
                             st.markdown("### 📄 Policy Match")
+                            st.markdown("**Excerpt:**")
                             st.markdown(row["EXCERPT"])
 
                         st.divider()
@@ -199,4 +211,7 @@ if search_btn:
             st.code(str(e))
 
 # -------------------------------------------------
-#
+# Footer
+# -------------------------------------------------
+st.divider()
+st.caption("Powered by Snowflake Cortex • Streamlit in Snowflake")
