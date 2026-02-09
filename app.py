@@ -175,7 +175,7 @@ if search_btn:
                     search_sql,
                     json.loads(results_df.to_json(orient="records")),
                     len(results_df),
-                    current_user
+                    current_user,
                     current_role,
                     datetime.now()
                 ]],
