@@ -120,6 +120,7 @@ lob = st.sidebar.selectbox("LOB", filters["LOB"])
 state = st.sidebar.selectbox("State", filters["STATE"])
 version = st.sidebar.selectbox("Version", filters["VERSION"])
 
+top_k = st.sidebar.slider("Top Results", 1, 20, 10)
 search_btn = st.sidebar.button("🔍 Search")
 
 # -------------------------------------------------
@@ -157,16 +158,9 @@ if search_btn:
 
                 for _, row in results_df.iterrows():
                     with st.container():
-
-                        if app_role.lower() == "admin":
-                            st.markdown(f"### 📄 {row['CITATION']}")
-                            st.markdown("**Excerpt:**")
-                            st.markdown(row["EXCERPT"])
-                        else:
-                            st.markdown("### 📄 Policy Match")
-                            st.markdown("**Excerpt:**")
-                            st.markdown(row["EXCERPT"])
-
+                        st.markdown(f"### 📄 {row['CITATION']}")
+                        st.markdown("**Excerpt:**")
+                        st.markdown(row["EXCERPT"])
                         st.divider()
 
             # -------------------------------------------------
