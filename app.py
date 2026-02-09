@@ -175,8 +175,7 @@ if search_btn:
                     search_sql,
                     json.loads(results_df.to_json(orient="records")),
                     len(results_df),
-                    current_user,
-                    app_role,
+                    current_user
                     current_role,
                     datetime.now()
                 ]],
@@ -189,8 +188,7 @@ if search_btn:
                     "QUERY_OUTPUT",
                     "RESULT_COUNT",
                     "USER_NAME",
-                    "APP_ROLE",
-                    "SNOWFLAKE_ROLE",
+                    "ROLE_NAME",
                     "SEARCH_TS"
                 ]
             )
