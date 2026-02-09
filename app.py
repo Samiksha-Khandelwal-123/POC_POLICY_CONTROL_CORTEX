@@ -57,8 +57,8 @@ if not st.session_state["authenticated"]:
 
     with st.form("login_form"):
         login_user = st.text_input(
-            "Snowflake Username",
-            placeholder="e.g. SAMIKSHA or samiksha@company.com"
+            "Username",
+            placeholder="e.g. username or username@company.com"
         )
         login_btn = st.form_submit_button("Login")
 
@@ -79,7 +79,7 @@ if not st.session_state["authenticated"]:
         st.session_state["username"] = login_user
         st.session_state["app_role"] = role
 
-        st.experimental_rerun()
+        #st.experimental_rerun()
 
     st.stop()
 
