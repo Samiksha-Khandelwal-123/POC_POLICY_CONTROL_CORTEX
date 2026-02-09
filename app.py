@@ -19,18 +19,18 @@ session = get_active_session()
 # -------------------------------------------------
 # Get Logged-in User (CORRECT for Streamlit in Snowflake)
 # -------------------------------------------------
-user_ctx = st.experimental_user
+user_ctx = st.user
 current_user = user_ctx.user_name   # ✅ DO NOT use CURRENT_USER()
 current_role = session.sql(
     "SELECT CURRENT_ROLE()"
 ).collect()[0][0]
 
-# -------------------------------------------------
-# Debug Context (can be removed later)
-# -------------------------------------------------
-st.sidebar.markdown("### 🔍 Debug Context")
-st.sidebar.write("CURRENT_USER:", current_user)
-st.sidebar.write("CURRENT_ROLE:", current_role)
+# # -------------------------------------------------
+# # Debug Context (can be removed later)
+# # -------------------------------------------------
+# st.sidebar.markdown("### 🔍 Debug Context")
+# st.sidebar.write("CURRENT_USER:", current_user)
+# st.sidebar.write("CURRENT_ROLE:", current_role)
 
 # -------------------------------------------------
 # Fetch App Role from Authorization Table
