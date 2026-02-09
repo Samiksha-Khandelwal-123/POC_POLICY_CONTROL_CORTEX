@@ -34,7 +34,7 @@ def authenticate_user(user_name, password):
             UPPER(USER_NAME) = UPPER(:1)
             OR UPPER(USER_NAME) = SPLIT(UPPER(:1), '@')[0]
         )
-        AND USER_PASSWORD = :2
+        AND PASSWORD = :2
         AND IS_ACTIVE = TRUE
     """, [user_name, password]).to_pandas()
 
