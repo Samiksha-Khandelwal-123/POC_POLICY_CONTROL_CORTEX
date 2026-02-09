@@ -113,7 +113,7 @@ filters = load_filter_values()
 
 search_text = st.sidebar.text_input(
     "Search Query",
-    placeholder="e.g. What is the termination clause?"
+    placeholder="e.g.termination clause"
 )
 
 lob = st.sidebar.selectbox("LOB", filters["LOB"])
