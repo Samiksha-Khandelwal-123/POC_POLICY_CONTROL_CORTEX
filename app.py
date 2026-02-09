@@ -172,13 +172,18 @@ if search_btn:
         # -------------------------------------------------
         # Audit Log
         # -------------------------------------------------
+        query_output = []
+
+        if results_df is not None and not results_df.empty:
+            query_output = json.loads(results_df.to_json(orient="records"))
+            
         audit_df = session.create_dataframe(
             [[
                 search_text,
                 lob,
                 state,
                 version,
-                json.loads(results_df.to_json("records")),
+                query_output,
                 len(results_df),
                 current_user,
                 app_role,
