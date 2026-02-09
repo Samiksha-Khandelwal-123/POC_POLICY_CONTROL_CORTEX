@@ -152,15 +152,22 @@ if search_btn:
         results_df = session.sql(search_sql).to_pandas()
 
         if results_df.empty:
-            st.warning("No results found.")
+            st.warning("No matching clauses found.")
         else:
-            results_df.columns = results_df.columns.str.upper()
+            results_df.columns = (
+                results_df.columns.str.replace('"', '')
+                .str.strip()
+                .str.upper()
+            )
+
+            results_df = results_df.sort_values("SCORE", ascending=False)
 
             for _, row in results_df.iterrows():
-                st.markdown(f"### 📄 {row['CITATION']}")
-                st.markdown("**Excerpt:**")
-                st.markdown(row["EXCERPT"])
-                st.divider()
+                with st.container():
+                    st.markdown(f"### 📄 {row['CITATION']}")
+                    st.markdown("**Excerpt:**")
+                    st.markdown(row["EXCERPT"])
+                    st.divider()
 
         # -------------------------------------------------
         # Audit Log
