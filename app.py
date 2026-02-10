@@ -176,7 +176,7 @@ if search_btn:
 
         if results_df is not None and not results_df.empty:
             #query_output = json.loads(results_df.to_json(orient="records"))
-            query_output = results_df
+            query_output = results_df.to_dict(orient="records")
             
         audit_df = session.create_dataframe(
             [[
