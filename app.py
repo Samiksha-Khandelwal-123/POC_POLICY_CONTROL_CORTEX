@@ -12,75 +12,82 @@ st.set_page_config(
 )
 
 # -------------------------------------------------
-# SAFE Session State Initialization
+# SAFE Session State Initialization (VERY IMPORTANT)
 # -------------------------------------------------
-for key in ["authenticated", "username", "app_role"]:
-    if key not in st.session_state:
-        st.session_state[key] = None if key != "authenticated" else False
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if "username" not in st.session_state:
+    st.session_state["username"] = None
+
+if "app_role" not in st.session_state:
+    st.session_state["app_role"] = None
 
 # -------------------------------------------------
-# Snowflake Session
+# Get Snowflake Session
 # -------------------------------------------------
 session = get_active_session()
 
 # -------------------------------------------------
-# Authentication Function
+# Helper: Fetch App Role
 # -------------------------------------------------
-def authenticate_user(user_name, password):
+def get_app_role(user_name):
     df = session.sql("""
-        SELECT USER_NAME, APP_ROLE
+        SELECT APP_ROLE
         FROM AI_POC_DB.HEALTH_POLICY_POC.APP_USER_ACCESS
         WHERE (
             UPPER(USER_NAME) = UPPER(:1)
             OR UPPER(USER_NAME) = SPLIT(UPPER(:1), '@')[0]
         )
-        AND PASSWORD = :2
         AND IS_ACTIVE = TRUE
-    """, [user_name, password]).to_pandas()
+    """, [user_name]).to_pandas()
 
     if df.empty:
-        return None, None
+        return None
 
-    return df.iloc[0]["USER_NAME"], df.iloc[0]["APP_ROLE"]
+    return df.iloc[0]["APP_ROLE"]
 
 # -------------------------------------------------
-# LOGIN SCREEN (FIRST PAGE)
+# LOGIN SCREEN (Shown first)
 # -------------------------------------------------
-if not st.session_state.authenticated:
+if not st.session_state["authenticated"]:
 
-    st.title("🔐 Login – Policy & Control Search")
-    st.caption("Enter your application credentials")
+    st.title("🔐 Policy Search Login")
+    st.caption("Authenticate to access Policy & Control Search")
 
     with st.form("login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
+        login_user = st.text_input(
+            "Username",
+            placeholder="e.g. username or username@company.com"
+        )
         login_btn = st.form_submit_button("Login")
 
     if login_btn:
-        if not username or not password:
-            st.warning("Please enter username and password.")
+
+        if not login_user.strip():
+            st.warning("Please enter your username.")
             st.stop()
 
-        user, role = authenticate_user(username, password)
+        role = get_app_role(login_user)
 
         if not role:
-            st.error("❌ Invalid username or password.")
+            st.error("❌ You are not authorized to access this application.")
             st.stop()
 
-        # ✅ Login success
-        st.session_state.authenticated = True
-        st.session_state.username = user
-        st.session_state.app_role = role
+        # ✅ Successful login
+        st.session_state["authenticated"] = True
+        st.session_state["username"] = login_user
+        st.session_state["app_role"] = role
 
         #st.experimental_rerun()
 
     st.stop()
 
 # -------------------------------------------------
-# USER CONTEXT
+# USER CONTEXT (After Login)
 # -------------------------------------------------
-current_user = st.session_state.username
-app_role = st.session_state.app_role
+current_user = st.session_state["username"]
+app_role = st.session_state["app_role"]
 
 current_role = session.sql(
     "SELECT CURRENT_ROLE()"
@@ -91,53 +98,66 @@ current_role = session.sql(
 # -------------------------------------------------
 st.sidebar.success("Authenticated")
 st.sidebar.write("👤 User:", current_user)
-st.sidebar.write("🛡️ App Role:", app_role.upper())
+
+if app_role:
+    st.sidebar.write("🛡️ App Role:", app_role.upper())
+else:
+    st.sidebar.write("🛡️ App Role: UNKNOWN")
 
 if st.sidebar.button("🚪 Logout"):
     st.session_state.clear()
     #st.experimental_rerun()
-
 # -------------------------------------------------
 # Header
 # -------------------------------------------------
 st.title("📄 Policy & Control Search")
-st.caption("Semantic search using Snowflake Cortex")
+st.caption("Semantic policy search using Snowflake Cortex")
 
 # -------------------------------------------------
-# Sidebar – Filters
+# Sidebar – Search Filters
 # -------------------------------------------------
 st.sidebar.header("🔎 Search Filters")
 
-def load_filters():
+def load_filter_values():
     df = session.sql("""
-        SELECT DISTINCT LOB, STATE, VERSION
+        SELECT DISTINCT
+            LOB,
+            STATE,
+            VERSION
         FROM AI_POC_DB.HEALTH_POLICY_POC.DOCUMENT_CHUNKS
         ORDER BY 1,2,3
     """).to_pandas()
 
     return {
-        "LOB": sorted(df["LOB"].dropna().unique()),
-        "STATE": sorted(df["STATE"].dropna().unique()),
-        "VERSION": sorted(df["VERSION"].dropna().unique())
+        "LOB": sorted(df["LOB"].dropna().unique().tolist()),
+        "STATE": sorted(df["STATE"].dropna().unique().tolist()),
+        "VERSION": sorted(df["VERSION"].dropna().unique().tolist())
     }
 
-filters = load_filters()
+filters = load_filter_values()
 
-search_text = st.sidebar.text_input("Search Query")
+search_text = st.sidebar.text_input(
+    "Search Query",
+    placeholder="e.g. termination clause"
+)
+
 lob = st.sidebar.selectbox("LOB", filters["LOB"])
 state = st.sidebar.selectbox("State", filters["STATE"])
 version = st.sidebar.selectbox("Version", filters["VERSION"])
 
+top_k = st.sidebar.slider("Top Results", 1, 20, 10)
 search_btn = st.sidebar.button("🔍 Search")
 
 # -------------------------------------------------
-# Search Execution
+# Execute Search
 # -------------------------------------------------
 if search_btn:
 
-    if not search_text:
-        st.warning("Enter a search query.")
+    if not search_text.strip():
+        st.warning("Please enter a search query.")
         st.stop()
+
+    st.subheader("📌 Search Results")
 
     search_sql = f"""
         CALL AI_POC_DB.HEALTH_POLICY_POC.SEARCH_POLICY_CLAUSE(
@@ -170,24 +190,18 @@ if search_btn:
                     st.divider()
 
         # -------------------------------------------------
-        # Audit Log
+        # Audit Logging (FIXED column count)
         # -------------------------------------------------
-        query_output = []
-
-        if results_df is not None and not results_df.empty:
-            #query_output = json.loads(results_df.to_json(orient="records"))
-            query_output = results_df.to_dict(orient="records")
-            
         audit_df = session.create_dataframe(
             [[
                 search_text,
                 lob,
                 state,
                 version,
-                query_output,
+                search_sql,
+                json.loads(results_df.to_json(orient="records")),
                 len(results_df),
                 current_user,
-                app_role,
                 current_role,
                 datetime.now()
             ]],
@@ -196,11 +210,11 @@ if search_btn:
                 "LOB",
                 "STATE",
                 "VERSION",
+                "QUERY_TEXT",
                 "QUERY_OUTPUT",
                 "RESULT_COUNT",
                 "USER_NAME",
-                "APP_ROLE",
-                "SNOWFLAKE_ROLE",
+                "ROLE_NAME",
                 "SEARCH_TS"
             ]
         )
@@ -211,7 +225,7 @@ if search_btn:
         )
 
     except Exception as e:
-        st.error("❌ Search failed")
+        st.error("❌ Error while executing search")
         st.code(str(e))
 
 # -------------------------------------------------
