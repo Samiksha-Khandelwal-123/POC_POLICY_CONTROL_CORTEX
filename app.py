@@ -187,7 +187,30 @@ if search_btn:
                     st.markdown(f"### 📄 {row['CITATION']}")
                     st.markdown("**Details:**")
                     st.markdown(row["EXCERPT"])
-                    st.markdown(row["FILE_PATH"])
+                    #st.markdown(row["FILE_PATH"])
+
+                    # -----------------------------
+                    # Download Button Logic
+                    # -----------------------------
+                    stage_path = row["FILE_PATH"]   # ✅ using your variable
+
+                    try:
+                        file_stream = session.file.get_stream(stage_path)
+                        file_bytes = file_stream.read()
+
+                        file_name = stage_path.split("/")[-1]
+
+                        st.download_button(
+                            label="⬇ Download Document",
+                            data=file_bytes,
+                            file_name=file_name,
+                            mime="application/octet-stream",
+                            key=f"download_{file_name}_{_}"
+                        )
+
+                    except Exception as e:
+                        st.error(f"Unable to download file: {e}")
+
                     st.divider()
 
         # -------------------------------------------------
