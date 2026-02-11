@@ -202,7 +202,7 @@ if search_btn:
                         # Read file from stage using SQL
                         #file_df = session.sql(f"SELECT $1 FROM {stage_path}").collect()
 
-                        if not file_df:
+                        if not file_bytes:
                             st.error("File not found in stage.")
                         else:
                             file_bytes = file_df[0][0]
