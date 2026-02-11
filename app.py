@@ -185,7 +185,7 @@ if search_btn:
             for _, row in results_df.iterrows():
                 with st.container():
                     st.markdown(f"### 📄 {row['CITATION']}")
-                    st.markdown("**Excerpt:**")
+                    st.markdown("**Details:**")
                     st.markdown(row["EXCERPT"])
                     st.divider()
 
