@@ -187,6 +187,7 @@ if search_btn:
                     st.markdown(f"### 📄 {row['CITATION']}")
                     st.markdown("**Details:**")
                     st.markdown(row["EXCERPT"])
+                    st.markdown(row["FILE_PATH"])
                     st.divider()
 
         # -------------------------------------------------
