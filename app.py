@@ -196,11 +196,11 @@ if search_btn:
                     stage_path = f"@POLICYDOCUMENTS/{file_name}"
 
                     try:
-                        #file_stream = session.file.get_stream(stage_path)
-                        #file_bytes = file_stream.read()
+                        file_stream = session.file.get_stream(stage_path)
+                        file_bytes = file_stream.read()
                         
                         # Read file from stage using SQL
-                        file_df = session.sql(f"SELECT $1 FROM {stage_path}").collect()
+                        #file_df = session.sql(f"SELECT $1 FROM {stage_path}").collect()
 
                         if not file_df:
                             st.error("File not found in stage.")
@@ -211,7 +211,7 @@ if search_btn:
                             label="⬇ Download Document",
                             data=file_bytes,
                             file_name=file_name,
-                            mime="application/octet-stream",
+                            mime="text/plain",
                             key=f"download_{file_name}_{_}"
                         )
 
