@@ -192,13 +192,20 @@ if search_btn:
                     # -----------------------------
                     # Download Button Logic
                     # -----------------------------
-                    stage_path = row["FILE_PATH"]   # ✅ using your variable
+                    file_name = row["FILE_PATH"].split("/")[-1]
+                    stage_path = f"@POLICYDOCUMENTS/{file_name}"
 
                     try:
-                        file_stream = session.file.get_stream(stage_path)
-                        file_bytes = file_stream.read()
+                        #file_stream = session.file.get_stream(stage_path)
+                        #file_bytes = file_stream.read()
+                        
+                        # Read file from stage using SQL
+                        file_df = session.sql(f"SELECT $1 FROM {stage_path}").collect()
 
-                        file_name = stage_path.split("/")[-1]
+                        if not file_df:
+                            st.error("File not found in stage.")
+                        else:
+                            file_bytes = file_df[0][0]
 
                         st.download_button(
                             label="⬇ Download Document",
