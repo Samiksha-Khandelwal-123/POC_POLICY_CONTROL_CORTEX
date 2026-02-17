@@ -124,7 +124,7 @@ def load_filter_values():
             LOB,
             STATE,
             VERSION
-        FROM AI_POC_DB.HEALTH_POLICY_POC.DOCUMENT_CHUNKS
+        FROM AI_POC_DB.HEALTH_POLICY_POC.DOCUMENT_METADATA
         ORDER BY 1,2,3
     """).to_pandas()
 
