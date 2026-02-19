@@ -1,3 +1,5 @@
+#version 4 #
+
 import streamlit as st
 from snowflake.snowpark.context import get_active_session
 from datetime import datetime
@@ -12,7 +14,7 @@ st.set_page_config(
 )
 
 # -------------------------------------------------
-# SAFE Session State Initialization
+# SAFE Session State Initialization (VERY IMPORTANT)
 # -------------------------------------------------
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
@@ -24,10 +26,10 @@ if "app_role" not in st.session_state:
     st.session_state["app_role"] = None
 
 if "search_results" not in st.session_state:
-    st.session_state["search_results"] = None
+    st.session_state.search_results = None
 
 if "search_executed" not in st.session_state:
-    st.session_state["search_executed"] = False
+    st.session_state.search_executed = False
 
 # -------------------------------------------------
 # Get Snowflake Session
@@ -54,7 +56,7 @@ def get_app_role(user_name):
     return df.iloc[0]["APP_ROLE"]
 
 # -------------------------------------------------
-# LOGIN SCREEN
+# LOGIN SCREEN (Shown first)
 # -------------------------------------------------
 if not st.session_state["authenticated"]:
 
@@ -80,16 +82,17 @@ if not st.session_state["authenticated"]:
             st.error("❌ You are not authorized to access this application.")
             st.stop()
 
+        # ✅ Successful login
         st.session_state["authenticated"] = True
         st.session_state["username"] = login_user
         st.session_state["app_role"] = role
 
-        st.rerun()
+        #st.experimental_rerun()
 
     st.stop()
 
 # -------------------------------------------------
-# USER CONTEXT
+# USER CONTEXT (After Login)
 # -------------------------------------------------
 current_user = st.session_state["username"]
 app_role = st.session_state["app_role"]
@@ -103,12 +106,15 @@ current_role = session.sql(
 # -------------------------------------------------
 st.sidebar.success("Authenticated")
 st.sidebar.write("👤 User:", current_user)
-st.sidebar.write("🛡️ App Role:", app_role.upper())
+
+if app_role:
+    st.sidebar.write("🛡️ App Role:", app_role.upper())
+else:
+    st.sidebar.write("🛡️ App Role: UNKNOWN")
 
 if st.sidebar.button("🚪 Logout"):
     st.session_state.clear()
-    st.rerun()
-
+    #st.experimental_rerun()
 # -------------------------------------------------
 # Header
 # -------------------------------------------------
@@ -119,7 +125,6 @@ st.caption("Semantic policy search using Snowflake Cortex")
 # Sidebar – Search Filters
 # -------------------------------------------------
 st.sidebar.header("🔎 Search Filters")
-
 @st.cache_data
 def load_filter_values():
     df = session.sql("""
@@ -144,15 +149,20 @@ search_text = st.sidebar.text_input(
     placeholder="e.g. termination clause"
 )
 
-lob = st.sidebar.selectbox("LOB", ["ALL"] + filters["LOB"])
-state = st.sidebar.selectbox("State", ["ALL"] + filters["STATE"])
-version = st.sidebar.selectbox("Version", ["ALL"] + filters["VERSION"])
+# Handle ALL logic
+lob_options = ["ALL"] + filters["LOB"]
+state_options = ["ALL"] + filters["STATE"]
+version_options = ["ALL"] + filters["VERSION"]
+
+lob = st.sidebar.selectbox("LOB", lob_options)
+state = st.sidebar.selectbox("State", state_options)
+version = st.sidebar.selectbox("Version", version_options)
 
 top_k = st.sidebar.slider("Top Results", 1, 20, 10)
 search_btn = st.sidebar.button("🔍 Search")
 
 # -------------------------------------------------
-# EXECUTE SEARCH (ONLY STORE RESULTS)
+# Execute Search
 # -------------------------------------------------
 if search_btn:
 
@@ -160,28 +170,73 @@ if search_btn:
         st.warning("Please enter a search query.")
         st.stop()
 
+    st.subheader("📌 Search Results")
+
     # Handle ALL logic
     lob_param = "" if lob == "ALL" else lob
     state_param = "" if state == "ALL" else state
     version_param = "" if version == "ALL" else version
-
+    
     search_sql = f"""
         CALL AI_POC_DB.HEALTH_POLICY_POC.SEARCH_POLICY_CLAUSE(
             '{search_text}',
-            '{state_param}',
-            '{lob_param}',
-            '{version_param}'
+            '{state}',
+            '{lob}',
+            '{version}'
         )
     """
 
     try:
         results_df = session.sql(search_sql).to_pandas()
+        
+        # Store results in session state
+        st.session_state.search_results = results_df
+        st.session_state.search_executed = True
 
-        # Store results in session state ONLY
-        st.session_state["search_results"] = results_df
-        st.session_state["search_executed"] = True
+        if results_df.empty:
+            st.warning("No matching clauses found.")
+        else:
+            results_df.columns = (
+                results_df.columns.str.replace('"', '')
+                .str.strip()
+                .str.upper()
+            )
 
-        # ---------------- Audit Logging ----------------
+            results_df = results_df.sort_values("SCORE", ascending=False)
+
+            for _, row in results_df.iterrows():
+                with st.container():
+                    st.markdown(f"### 📄 {row['CITATION']}")
+                    st.markdown("**Details:**")
+                    st.markdown(row["EXCERPT"])
+                    #st.markdown(row["FILE_PATH"])
+
+                    # -----------------------------
+                    # Download Button Logic
+                    # -----------------------------
+                    file_name = row["FILE_PATH"].split("/")[-1]
+                    stage_path = f"@POLICYDOCUMENTS/{file_name}"
+
+                    try:
+                        file_stream = session.file.get_stream(stage_path)
+                        file_bytes = file_stream.read()
+
+                        st.download_button(
+                            label="⬇ Download Document",
+                            data=file_bytes,
+                            file_name=file_name,
+                            mime="text/plain",
+                            key=f"download_{file_name}_{_}"
+                        )
+
+                    except Exception as e:
+                        st.error(f"Unable to download file: {e}")
+
+                    st.divider()
+
+        # -------------------------------------------------
+        # Audit Logging (FIXED column count)
+        # -------------------------------------------------
         audit_df = session.create_dataframe(
             [[
                 search_text,
@@ -214,38 +269,12 @@ if search_btn:
             mode="append"
         )
 
-        st.rerun()
-
     except Exception as e:
         st.error("❌ Error while executing search")
         st.code(str(e))
 
 # -------------------------------------------------
-# DISPLAY RESULTS (PERSISTENT AFTER DOWNLOAD)
+# Footer
 # -------------------------------------------------
-if st.session_state["search_executed"] and st.session_state["search_results"] is not None:
-
-    results_df = st.session_state["search_results"]
-
-    st.subheader("📌 Search Results")
-
-    if results_df.empty:
-        st.warning("No matching clauses found.")
-    else:
-        results_df.columns = (
-            results_df.columns.str.replace('"', '')
-            .str.strip()
-            .str.upper()
-        )
-
-        if "SCORE" in results_df.columns:
-            results_df = results_df.sort_values("SCORE", ascending=False)
-
-        for idx, row in results_df.iterrows():
-            with st.container():
-                st.markdown(f"### 📄 {row['CITATION']}")
-                st.markdown("**Details:**")
-                st.markdown(row["EXCERPT"])
-
-                file_name = row["FILE_PATH"].split("/")[-1]
-                st
+st.divider()
+st.caption("Powered by Snowflake Cortex • Streamlit in Snowflake")
