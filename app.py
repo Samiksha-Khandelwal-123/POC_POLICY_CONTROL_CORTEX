@@ -141,9 +141,14 @@ search_text = st.sidebar.text_input(
     placeholder="e.g. termination clause"
 )
 
-lob = st.sidebar.selectbox("LOB", filters["LOB"])
-state = st.sidebar.selectbox("State", filters["STATE"])
-version = st.sidebar.selectbox("Version", filters["VERSION"])
+# Handle ALL logic
+lob_options = ["ALL"] + filters["LOB"]
+state_options = ["ALL"] + filters["STATE"]
+version_options = ["ALL"] + filters["VERSION"]
+
+lob = st.sidebar.selectbox("LOB", lob_options)
+state = st.sidebar.selectbox("State", state_options)
+version = st.sidebar.selectbox("Version", version_options)
 
 top_k = st.sidebar.slider("Top Results", 1, 20, 10)
 search_btn = st.sidebar.button("🔍 Search")
@@ -159,6 +164,11 @@ if search_btn:
 
     st.subheader("📌 Search Results")
 
+    # Handle ALL logic
+    lob_param = "" if lob == "ALL" else lob
+    state_param = "" if state == "ALL" else state
+    version_param = "" if version == "ALL" else version
+    
     search_sql = f"""
         CALL AI_POC_DB.HEALTH_POLICY_POC.SEARCH_POLICY_CLAUSE(
             '{search_text}',
