@@ -177,7 +177,7 @@ if search_btn:
     # SAFE PARAMETERIZED CALL
     search_sql = f"""
     CALL AI_POC_DB.HEALTH_POLICY_POC.SEARCH_POLICY_CLAUSE_V2(
-        '{search_text.replace("'", "''")}',
+        '{search_text}',
         '{state_param}',
         '{lob_param}',
         '{version_param}',
