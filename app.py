@@ -158,7 +158,7 @@ lob = st.sidebar.selectbox("LOB", lob_options)
 state = st.sidebar.selectbox("State", state_options)
 version = st.sidebar.selectbox("Version", version_options)
 
-top_k = st.sidebar.slider("Top Results", 1, 20, 10)
+top_K = st.sidebar.slider("Top Results", 1, 20, 10)
 search_btn = st.sidebar.button("🔍 Search")
 
 # -------------------------------------------------
@@ -178,11 +178,12 @@ if search_btn:
     version_param = "" if version == "ALL" else version
     
     search_sql = f"""
-        CALL AI_POC_DB.HEALTH_POLICY_POC.SEARCH_POLICY_CLAUSE(
+        CALL AI_POC_DB.HEALTH_POLICY_POC.SEARCH_POLICY_CLAUSE_V2(
             '{search_text}',
             '{state}',
             '{lob}',
-            '{version}'
+            '{version}',
+            '{top_K}'
         )
     """
 
@@ -215,7 +216,7 @@ if search_btn:
                     # Download Button Logic
                     # -----------------------------
                     file_name = row["FILE_PATH"].split("/")[-1]
-                    stage_path = f"@POLICYDOCUMENTS/{file_name}"
+                    stage_path = f"@ACCESS_S3_DOCS/{file_name}"
 
                     try:
                         file_stream = session.file.get_stream(stage_path)
