@@ -211,7 +211,7 @@ if search_btn:
                     st.markdown("**Details:**")
                     st.markdown(row["EXCERPT"])
                     st.markdown("**Summary:**")
-                    st.markdown(row["Summary"])
+                    st.markdown(row["SUMMARY"])
                     #st.markdown(row["FILE_PATH"])
 
                     # -----------------------------
