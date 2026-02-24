@@ -175,17 +175,18 @@ if search_btn:
     version_param = "" if version == "ALL" else version
 
     # SAFE PARAMETERIZED CALL
-    search_sql = """
-        CALL AI_POC_DB.HEALTH_POLICY_POC.SEARCH_POLICY_CLAUSE_V2(
-            %s, %s, %s, %s, %s
-        )
-    """
+    search_sql = f"""
+    CALL AI_POC_DB.HEALTH_POLICY_POC.SEARCH_POLICY_CLAUSE_V2(
+        '{search_text.replace("'", "''")}',
+        '{state_param}',
+        '{lob_param}',
+        '{version_param}',
+        {top_k}
+    )
+"""
 
     try:
-        results_df = session.sql(
-            search_sql,
-            [search_text, state_param, lob_param, version_param, top_k]
-        ).to_pandas()
+        results_df = session.sql(search_sql).to_pandas()
 
         st.session_state.search_results = results_df
         st.session_state.search_executed = True
