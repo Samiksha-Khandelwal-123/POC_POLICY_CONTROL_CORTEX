@@ -178,11 +178,12 @@ if search_btn:
     version_param = "" if version == "ALL" else version
     
     search_sql = f"""
-        CALL AI_POC_DB.HEALTH_POLICY_POC.SEARCH_POLICY_CLAUSE(
+        CALL AI_POC_DB.HEALTH_POLICY_POC.SEARCH_POLICY_CLAUSE_V2(
             '{search_text}',
             '{state}',
             '{lob}',
-            '{version}'
+            '{version}',
+            '{topN}'
         )
     """
 
