@@ -206,7 +206,18 @@ if search_btn:
             results_df = results_df.sort_values("SCORE", ascending=False)
             
             st.markdown("### 📖 Summary")
+            st.markdown("""
+            <div style="
+            padding:18px;
+            background-color:#f8f9fa;
+            border-left:6px solid #2E86C1;
+            border-radius:8px;
+            margin-bottom:25px;
+            ">
+            """, unsafe_allow_html=True)
+            
             st.markdown(results_df.iloc[0]["FINAL_ANSWER"])
+            st.markdown("</div>", unsafe_allow_html=True)
             
             for _, row in results_df.iterrows():
                 with st.container():
