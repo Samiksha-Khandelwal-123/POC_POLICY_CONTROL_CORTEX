@@ -205,19 +205,51 @@ if search_btn:
 
             results_df = results_df.sort_values("SCORE", ascending=False)
             
-            st.markdown("### 📖 Summary")
-            st.markdown("""
-            <div style="
-            padding:18px;
-            background-color:#f8f9fa;
-            border-left:6px solid #2E86C1;
-            border-radius:8px;
-            margin-bottom:25px;
-            ">
-            """, unsafe_allow_html=True)
+            # st.markdown("### 📖 Summary")
+            # st.markdown("""
+            # <div style="
+            # padding:18px;
+            # background-color:#f8f9fa;
+            # border-left:6px solid #2E86C1;
+            # border-radius:8px;
+            # margin-bottom:25px;
+            # ">
+            # """, unsafe_allow_html=True)
             
-            st.markdown(results_df.iloc[0]["FINAL_ANSWER"])
-            st.markdown("</div>", unsafe_allow_html=True)
+            # st.markdown(results_df.iloc[0]["FINAL_ANSWER"])
+            # st.markdown("</div>", unsafe_allow_html=True)
+
+            st.markdown("## 📖 Summary")
+
+            st.markdown(f"""
+            <div style="
+                padding:22px;
+                background: linear-gradient(135deg, #f8fafc, #eef2f7);
+                border-radius:16px;
+                border:1px solid #e3e8ef;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+                margin-bottom:30px;
+            ">
+                <div style="
+                    font-size:14px;
+                    font-weight:600;
+                    color:#6b7280;
+                    margin-bottom:10px;
+                    text-transform:uppercase;
+                    letter-spacing:0.5px;
+                ">
+                    🤖 AI Generated Summary
+                </div>
+
+                <div style="
+                    font-size:16px;
+                    line-height:1.7;
+                    color:#1f2937;
+                 ">
+                    {results_df.iloc[0]["FINAL_ANSWER"]}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
             
             for _, row in results_df.iterrows():
                 with st.container():
