@@ -205,8 +205,8 @@ if search_btn:
 
             results_df = results_df.sort_values("SCORE", ascending=False)
             
-            st.markdown("**Summary:**")
-            st.markdown(f"### 📖 {results_df.iloc[0]['FINAL_ANSWER']}")
+            st.markdown("### 📖 Summary")
+            st.markdown(results_df.iloc[0]["FINAL_ANSWER"])
             
             for _, row in results_df.iterrows():
                 with st.container():
