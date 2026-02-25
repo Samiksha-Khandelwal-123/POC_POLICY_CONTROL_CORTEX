@@ -241,13 +241,8 @@ if search_btn:
                     🤖 AI Generated Summary
                 </div>
 
-                # <div style="
-                #     font-size:16px;
-                #     line-height:1.7;
-                #     color:#1f2937;
-                #  ">
                     {results_df.iloc[0]["FINAL_ANSWER"]}
-                # </div>
+               
             </div>
             """, unsafe_allow_html=True)
             
