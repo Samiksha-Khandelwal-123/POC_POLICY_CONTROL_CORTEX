@@ -218,7 +218,8 @@ if search_btn:
                     # Download Button Logic
                     # -----------------------------
                     file_name = row["FILE_PATH"].split("/")[-1]
-                    stage_path = f"@ACCESS_S3_DOCS/{file_name}"
+                    stage_path = row["FILE_PATH"]
+                    #stage_path = f"@ACCESS_S3_DOCS/{file_name}"
 
                     try:
                         file_stream = session.file.get_stream(stage_path)
