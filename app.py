@@ -178,7 +178,7 @@ if search_btn:
     version_param = "" if version == "ALL" else version
     
     search_sql = f"""
-        CALL AI_POC_DB.HEALTH_POLICY_POC.SEARCH_POLICY_CLAUSE_V2(
+        CALL AI_POC_DB.HEALTH_POLICY_POC.SEARCH_POLICY_CLAUSE_V3(
             '{search_text}',
             '{state}',
             '{lob}',
@@ -207,6 +207,8 @@ if search_btn:
 
             for _, row in results_df.iterrows():
                 with st.container():
+                    st.markdown("**Brief_Summary:**")
+                    st.markdown(row["FINAL_ANSWER"])
                     st.markdown(f"### 📄 {row['CITATION']}")
                     st.markdown("**Details:**")
                     st.markdown(row["EXCERPT"])
