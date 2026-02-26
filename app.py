@@ -267,7 +267,7 @@ if search_btn:
                             )
 
                         except Exception as e:
-                        st.error(f"Unable to download file: {e}")
+                            st.error(f"Unable to download file: {e}")
 
                     st.divider()
 
