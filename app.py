@@ -212,10 +212,10 @@ if search_btn:
             col1, col2 = st.columns([6, 1])
 
             with col1:
-            st.markdown("## 📖 Summary")
+                st.markdown("## 📖 Summary")
 
             with col2:
-            show_summary = st.button("🤖 View", key="summary_btn")
+                show_summary = st.button("🤖 View", key="summary_btn")
 
             # ------------------------------------
             # SUMMARY BOX (ONLY WHEN CLICKED)
