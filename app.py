@@ -205,113 +205,68 @@ if search_btn:
 
             results_df = results_df.sort_values("SCORE", ascending=False)
             
-            # ------------------------------------
-            # SUMMARY HEADER WITH RIGHT BUTTON
-            # ------------------------------------
-
-            col1, col2 = st.columns([6, 1])
-
-            with col1:
-                st.markdown("## 📖 Summary")
-
-            with col2:
-                show_summary = st.button("🤖 View", key="summary_btn")
-
-            # ------------------------------------
-            # SUMMARY BOX (ONLY WHEN CLICKED)
-            # ------------------------------------
-
-            if show_summary:
-                st.markdown(f"""
-                <div style="
-                    padding:22px;
-                    background: linear-gradient(135deg, #f8fafc, #eef2f7);
-                    border-radius:16px;
-                    border:1px solid #e3e8ef;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-                    margin-top:10px;
-                    margin-bottom:30px;
-                ">
-                    <div style="
-                        font-size:14px;
-                        font-weight:600;
-                        color:#6b7280;
-                        margin-bottom:10px;
-                        text-transform:uppercase;
-                        letter-spacing:0.5px;
-                    ">
-                        🤖 AI Generated Summary
-                    </div>
-
-                    <div style="
-                        font-size:16px;
-                        line-height:1.7;
-                        color:#1f2937;
-                    ">
-                        {results_df.iloc[0]["FINAL_ANSWER"]}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-    
-            # st.markdown("## 📖 Summary")
-
-            # st.markdown(f"""
-            # <div style="
-            #     padding:22px;
-            #     background: linear-gradient(135deg, #f8fafc, #eef2f7);
-            #     border-radius:16px;
-            #     border:1px solid #e3e8ef;
-            #     box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-            #     margin-bottom:30px;
-            # ">
-            #     <div style="
-            #         font-size:14px;
-            #         font-weight:600;
-            #         color:#6b7280;
-            #         margin-bottom:10px;
-            #         text-transform:uppercase;
-            #         letter-spacing:0.5px;
-            #     ">
-            #         🤖 AI Generated Summary
-            #     </div>
-
-            #         {results_df.iloc[0]["FINAL_ANSWER"]}
-               
-            # </div>
-            # """, unsafe_allow_html=True)
             #----------------------------------------------------------
             
             for _, row in results_df.iterrows():
                 with st.container():
-                    
+
+                    # -----------------------------------
+                    # HEADER
+                    # -----------------------------------
                     st.markdown(f"### 📄 {row['CITATION']}")
+
+                    # -----------------------------------
+                    # DETAILS
+                    # -----------------------------------
                     st.markdown("**Details:**")
                     st.markdown(row["EXCERPT"])
                     # st.markdown("**Summary:**")
                     # st.markdown(row["SUMMARY"])
+
+                    # -----------------------------------
+                    # LEFT-ALIGNED BUTTON ROW
+                    # -----------------------------------
+                    col_summary, col_download, _ = st.columns([1.5, 1.5, 6])
+
+                    with col_summary:
+                        st.markdown("""
+                            <div style="
+                                display:inline-block;
+                                padding:6px 14px;
+                                font-size:14px;
+                                font-weight:500;
+                                border-radius:8px;
+                                border:1px solid rgba(49,51,63,0.2);
+                                background-color:#f0f2f6;
+                                color:#31333f;
+                            ">
+                                🤖 Summary
+                            </div>
+                        """, unsafe_allow_html=True)
                     
 
                     # -----------------------------
                     # Download Button Logic
                     # -----------------------------
-                    file_name = row["FILE_PATH"].split("/")[-1]
-                    stage_path = row["FILE_PATH"]
-                    #stage_path = f"@ACCESS_S3_DOCS/{file_name}"
+                    with col_download:
+   
+                        file_name = row["FILE_PATH"].split("/")[-1]
+                        stage_path = row["FILE_PATH"]
+                        #stage_path = f"@ACCESS_S3_DOCS/{file_name}"
 
-                    try:
-                        file_stream = session.file.get_stream(stage_path)
-                        file_bytes = file_stream.read()
+                        try:
+                            file_stream = session.file.get_stream(stage_path)
+                            file_bytes = file_stream.read()
 
-                        st.download_button(
-                            label="⬇ Download Document",
-                            data=file_bytes,
-                            file_name=file_name,
-                            mime="text/plain",
-                            key=f"download_{file_name}_{_}"
-                        )
+                            st.download_button(
+                                label="⬇ Download Document",
+                                data=file_bytes,
+                                file_name=file_name,
+                                mime="text/plain",
+                                key=f"download_{file_name}_{_}"
+                            )
 
-                    except Exception as e:
+                        except Exception as e:
                         st.error(f"Unable to download file: {e}")
 
                     st.divider()
